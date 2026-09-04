@@ -5,8 +5,10 @@ use crate::ancestors::Ancestors;
 use super::{
     children::Children,
     decendents::Descendants,
+    forward_siblings::ForwardSiblings,
     iter::{Iter, IterMut},
     orphans::Orphans,
+    previous_siblings::PreviousSiblings,
     traverse::Traverse,
 };
 
@@ -286,6 +288,14 @@ impl<T> Tree<T> {
 
     pub fn ancestors<'a>(&'a self, node: NodeId) -> Ancestors<'a, T> {
         Ancestors::new(&self.nodes, node)
+    }
+
+    pub fn forward_siblings<'a>(&'a self, node: NodeId) -> ForwardSiblings<'a, T> {
+        ForwardSiblings::new(&self.nodes, node)
+    }
+
+    pub fn previous_siblings<'a>(&'a self, node: NodeId) -> PreviousSiblings<'a, T> {
+        PreviousSiblings::new(&self.nodes, node)
     }
 
     pub fn iter(&self) -> Iter<'_, T> {
@@ -737,6 +747,104 @@ mod tests {
         assert_eq!(iter.next(), Some(child));
         assert_eq!(iter.len(), 1);
         assert_eq!(iter.next(), Some(root));
+        assert_eq!(iter.len(), 0);
+        assert_eq!(iter.next(), None);
+    }
+
+    // --- Siblings ---
+
+    #[test]
+    fn forward_siblings_includes_node_and_following_siblings() {
+        let mut tree = new_tree();
+        let parent = tree.alloc("parent");
+        let a = tree.alloc("a");
+        let b = tree.alloc("b");
+        let c = tree.alloc("c");
+        tree.append(parent, a);
+        tree.append(parent, b);
+        tree.append(parent, c);
+
+        let ids: Vec<_> = tree.forward_siblings(b).collect();
+        assert_eq!(ids, vec![b, c]);
+    }
+
+    #[test]
+    fn forward_siblings_of_only_child_yields_only_node() {
+        let mut tree = new_tree();
+        let parent = tree.alloc("parent");
+        let a = tree.alloc("a");
+        tree.append(parent, a);
+
+        let ids: Vec<_> = tree.forward_siblings(a).collect();
+        assert_eq!(ids, vec![a]);
+    }
+
+    #[test]
+    fn forward_siblings_len_tracks_remaining_nodes() {
+        let mut tree = new_tree();
+        let parent = tree.alloc("parent");
+        let a = tree.alloc("a");
+        let b = tree.alloc("b");
+        let c = tree.alloc("c");
+        tree.append(parent, a);
+        tree.append(parent, b);
+        tree.append(parent, c);
+
+        let mut iter = tree.forward_siblings(a);
+        assert_eq!(iter.len(), 3);
+        assert_eq!(iter.next(), Some(a));
+        assert_eq!(iter.len(), 2);
+        assert_eq!(iter.next(), Some(b));
+        assert_eq!(iter.len(), 1);
+        assert_eq!(iter.next(), Some(c));
+        assert_eq!(iter.len(), 0);
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn previous_siblings_includes_node_and_preceding_siblings_in_reverse() {
+        let mut tree = new_tree();
+        let parent = tree.alloc("parent");
+        let a = tree.alloc("a");
+        let b = tree.alloc("b");
+        let c = tree.alloc("c");
+        tree.append(parent, a);
+        tree.append(parent, b);
+        tree.append(parent, c);
+
+        let ids: Vec<_> = tree.previous_siblings(b).collect();
+        assert_eq!(ids, vec![b, a]);
+    }
+
+    #[test]
+    fn previous_siblings_of_only_child_yields_only_node() {
+        let mut tree = new_tree();
+        let parent = tree.alloc("parent");
+        let a = tree.alloc("a");
+        tree.append(parent, a);
+
+        let ids: Vec<_> = tree.previous_siblings(a).collect();
+        assert_eq!(ids, vec![a]);
+    }
+
+    #[test]
+    fn previous_siblings_len_tracks_remaining_nodes() {
+        let mut tree = new_tree();
+        let parent = tree.alloc("parent");
+        let a = tree.alloc("a");
+        let b = tree.alloc("b");
+        let c = tree.alloc("c");
+        tree.append(parent, a);
+        tree.append(parent, b);
+        tree.append(parent, c);
+
+        let mut iter = tree.previous_siblings(c);
+        assert_eq!(iter.len(), 3);
+        assert_eq!(iter.next(), Some(c));
+        assert_eq!(iter.len(), 2);
+        assert_eq!(iter.next(), Some(b));
+        assert_eq!(iter.len(), 1);
+        assert_eq!(iter.next(), Some(a));
         assert_eq!(iter.len(), 0);
         assert_eq!(iter.next(), None);
     }
