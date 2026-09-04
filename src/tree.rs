@@ -9,6 +9,7 @@ use super::{
     iter::{Iter, IterMut},
     orphans::Orphans,
     previous_siblings::PreviousSiblings,
+    reverse_children::ReverseChildren,
     traverse::Traverse,
 };
 
@@ -276,6 +277,10 @@ impl<T> Tree<T> {
 
     pub fn children<'a>(&'a self, node: NodeId) -> Children<'a, T> {
         Children::new(&self.nodes, node)
+    }
+
+    pub fn reverse_children<'a>(&'a self, node: NodeId) -> ReverseChildren<'a, T> {
+        ReverseChildren::new(&self.nodes, node)
     }
 
     pub fn traverse<'a>(&'a self, node: NodeId) -> Traverse<'a, T> {
@@ -850,6 +855,84 @@ mod tests {
     }
 
     // --- Children ---
+
+    #[test]
+    fn reverse_children_yields_children_in_reverse_order() {
+        let mut tree = new_tree();
+        let parent = tree.alloc("parent");
+        let a = tree.alloc("a");
+        let b = tree.alloc("b");
+        let c = tree.alloc("c");
+        tree.append(parent, a);
+        tree.append(parent, b);
+        tree.append(parent, c);
+
+        let ids: Vec<_> = tree.reverse_children(parent).collect();
+        assert_eq!(ids, vec![c, b, a]);
+    }
+
+    #[test]
+    fn reverse_children_next_back_yields_forward_order() {
+        let mut tree = new_tree();
+        let parent = tree.alloc("parent");
+        let a = tree.alloc("a");
+        let b = tree.alloc("b");
+        let c = tree.alloc("c");
+        tree.append(parent, a);
+        tree.append(parent, b);
+        tree.append(parent, c);
+
+        let ids: Vec<_> = tree.reverse_children(parent).rev().collect();
+        assert_eq!(ids, vec![a, b, c]);
+    }
+
+    #[test]
+    fn reverse_children_mixed_front_and_back() {
+        let mut tree = new_tree();
+        let parent = tree.alloc("parent");
+        let a = tree.alloc("a");
+        let b = tree.alloc("b");
+        let c = tree.alloc("c");
+        tree.append(parent, a);
+        tree.append(parent, b);
+        tree.append(parent, c);
+
+        let mut iter = tree.reverse_children(parent);
+        assert_eq!(iter.next(), Some(c));
+        assert_eq!(iter.next_back(), Some(a));
+        assert_eq!(iter.next(), Some(b));
+        assert_eq!(iter.next_back(), None);
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn reverse_children_single_item_front_back() {
+        let mut tree = new_tree();
+        let parent = tree.alloc("parent");
+        let a = tree.alloc("a");
+        tree.append(parent, a);
+
+        let mut iter = tree.reverse_children(parent);
+        assert_eq!(iter.next_back(), Some(a));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn reverse_children_len_matches_child_count() {
+        let mut tree = new_tree();
+        let parent = tree.alloc("parent");
+        let a = tree.alloc("a");
+        let b = tree.alloc("b");
+        tree.append(parent, a);
+        tree.append(parent, b);
+
+        let mut iter = tree.reverse_children(parent);
+        assert_eq!(iter.len(), 2);
+        iter.next();
+        assert_eq!(iter.len(), 1);
+        iter.next();
+        assert_eq!(iter.len(), 0);
+    }
 
     #[test]
     fn children_next_back_reverse_order() {
