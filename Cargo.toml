@@ -1,5 +1,5 @@
 [package]
-name = "trae-rs"
+name = "trae"
 version = "0.1.0"
 edition = "2024"
 
@@ -7,7 +7,7 @@ edition = "2024"
 slotmap = { version = "1", default-features = false }
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.8"
 
 [[bench]]
 name = "tree"
