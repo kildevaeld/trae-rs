@@ -49,8 +49,27 @@ for value in tree.children(root) {
 
 - Build: `cargo build`
 - Test: `cargo test`
+- Bench: `cargo bench` (or `cargo bench -- <filter>` for a subset, e.g. `cargo bench -- traverse`)
 - Lint: `cargo clippy`
 - Format: `cargo fmt`
+
+## Testing
+
+All tests live inline in `#[cfg(test)]` modules — currently all in `src/tree.rs`,
+organized by operation: accessors, alloc, append/insert/remove/detach (including
+moving an existing node between parents and subtree removal via
+`remove(node, true)`), and iterators (children/ancestors/decendents/traverse),
+each covering forward, backward, and mixed front/back iteration plus edge cases
+like empty trees and single-node subtrees.
+
+## Benchmarks
+
+Criterion benchmarks live in `benches/tree.rs`, covering allocation, mutation
+(`append`, `detach`, `remove` with and without descendants), and iteration
+(`traverse`, `decendents`, `children`, `ancestors`, `iter`) across flat, chain,
+and balanced-binary tree shapes at a few sizes (100 / 1,000 / 10,000 nodes).
+Run `cargo bench` and check `target/criterion/report/index.html` for the full
+HTML report.
 
 ## Architecture
 
@@ -61,6 +80,8 @@ for value in tree.children(root) {
   `src/iter.rs` — read-only, double-ended iterators over the arena.
 - `src/lib.rs` — public re-exports: `Tree`, `NodeId`, `Children`, `Descendants`,
   `Iter`/`IterMut`, `Traverse`.
+- `benches/tree.rs` — Criterion benchmarks (dev-only; the crate itself stays
+  `#![no_std]`).
 
 ## License
 

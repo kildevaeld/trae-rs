@@ -10,8 +10,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Test (single module): `cargo test tree::tests::`
 - Lint: `cargo clippy`
 - Format: `cargo fmt`
+- Bench (all): `cargo bench`
+- Bench (filtered): `cargo bench -- <substring>` (e.g. `cargo bench -- traverse`)
 
-There is no test harness beyond `#[cfg(test)]` modules — all tests currently live inline in `src/tree.rs`.
+There is no test harness beyond `#[cfg(test)]` modules — all tests currently live inline in `src/tree.rs`. Benchmarks (Criterion, dev-dependency only — the crate itself stays `#![no_std]`) live in `benches/tree.rs` and cover alloc/append/detach/remove/traverse/decendents/children/ancestors/iter across flat, chain, and balanced-binary tree shapes.
 
 ## Architecture
 

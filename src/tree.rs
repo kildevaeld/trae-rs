@@ -1188,4 +1188,311 @@ mod tests {
         assert_eq!(it.next_back(), None);
         assert_eq!(it.next(), None);
     }
+
+    // --- Basic accessors ---
+
+    #[test]
+    fn new_tree_is_empty() {
+        let tree: Tree<&str> = Tree::new();
+        assert!(tree.is_empty());
+        assert_eq!(tree.len(), 0);
+    }
+
+    #[test]
+    fn alloc_increases_len_and_is_not_empty() {
+        let mut tree = new_tree();
+        assert!(tree.is_empty());
+        tree.alloc("a");
+        assert!(!tree.is_empty());
+        assert_eq!(tree.len(), 1);
+        tree.alloc("b");
+        assert_eq!(tree.len(), 2);
+    }
+
+    #[test]
+    fn alloc_with_receives_its_own_node_id() {
+        let mut tree: Tree<(NodeId, &str)> = Tree::new();
+        let id = tree.alloc_with(|id| (id, "a"));
+        assert_eq!(tree.get(id), Some(&(id, "a")));
+    }
+
+    #[test]
+    fn try_alloc_with_propagates_ok() {
+        let mut tree: Tree<i32> = Tree::new();
+        let id = tree.try_alloc_with::<_, ()>(|_| Ok(42)).unwrap();
+        assert_eq!(tree.get(id), Some(&42));
+        assert_eq!(tree.len(), 1);
+    }
+
+    #[test]
+    fn try_alloc_with_propagates_err_without_inserting() {
+        let mut tree: Tree<i32> = Tree::new();
+        let result = tree.try_alloc_with::<_, &str>(|_| Err("boom"));
+        assert_eq!(result, Err("boom"));
+        assert!(tree.is_empty());
+    }
+
+    #[test]
+    fn get_and_get_mut_roundtrip() {
+        let mut tree = new_tree();
+        let a = tree.alloc("a");
+
+        assert_eq!(tree.get(a), Some(&"a"));
+        *tree.get_mut(a).unwrap() = "changed";
+        assert_eq!(tree.get(a), Some(&"changed"));
+    }
+
+    #[test]
+    fn get_after_remove_returns_none() {
+        let mut tree = new_tree();
+        let a = tree.alloc("a");
+        tree.remove(a, false);
+
+        assert_eq!(tree.get(a), None);
+        assert_eq!(tree.get_mut(a), None);
+    }
+
+    #[test]
+    fn contains_reflects_node_lifetime() {
+        let mut tree = new_tree();
+        let a = tree.alloc("a");
+        assert!(tree.contains(a));
+
+        tree.remove(a, false);
+        assert!(!tree.contains(a));
+    }
+
+    #[test]
+    fn parent_of_root_and_child() {
+        let mut tree = new_tree();
+        let root = tree.alloc("root");
+        let child = tree.alloc("child");
+        tree.append(root, child);
+
+        assert_eq!(tree.parent(root), None);
+        assert_eq!(tree.parent(child), Some(root));
+    }
+
+    #[test]
+    fn index_and_index_mut_operators() {
+        let mut tree = new_tree();
+        let a = tree.alloc("a");
+
+        assert_eq!(tree[a], "a");
+        tree[a] = "b";
+        assert_eq!(tree[a], "b");
+    }
+
+    #[test]
+    #[should_panic]
+    fn index_panics_on_removed_node() {
+        let mut tree = new_tree();
+        let a = tree.alloc("a");
+        tree.remove(a, false);
+
+        let _ = tree[a];
+    }
+
+    // --- Moving existing nodes ---
+
+    #[test]
+    fn append_moves_node_from_previous_parent() {
+        let mut tree = new_tree();
+        let parent_a = tree.alloc("parent_a");
+        let parent_b = tree.alloc("parent_b");
+        let child = tree.alloc("child");
+        let sibling = tree.alloc("sibling");
+
+        tree.append(parent_a, child);
+        tree.append(parent_a, sibling);
+        tree.append(parent_b, child);
+
+        assert_eq!(children(&tree, parent_a), vec![sibling]);
+        assert_eq!(children(&tree, parent_b), vec![child]);
+        assert_eq!(tree.nodes[child].parent, Some(parent_b));
+    }
+
+    #[test]
+    fn insert_before_moves_node_from_previous_location() {
+        let mut tree = new_tree();
+        let parent = tree.alloc("parent");
+        let a = tree.alloc("a");
+        let b = tree.alloc("b");
+        let c = tree.alloc("c");
+        tree.append(parent, a);
+        tree.append(parent, b);
+        tree.append(parent, c);
+
+        // Move `a` to sit right before `c`: b -> a -> c
+        tree.insert_before(parent, c, a);
+
+        assert_eq!(children(&tree, parent), vec![b, a, c]);
+        assert_eq!(tree.nodes[parent].first_child, Some(b));
+    }
+
+    #[test]
+    fn insert_after_moves_node_from_previous_location() {
+        let mut tree = new_tree();
+        let parent = tree.alloc("parent");
+        let a = tree.alloc("a");
+        let b = tree.alloc("b");
+        let c = tree.alloc("c");
+        tree.append(parent, a);
+        tree.append(parent, b);
+        tree.append(parent, c);
+
+        // Move `c` to sit right after `a`: a -> c -> b
+        tree.insert_after(parent, a, c);
+
+        assert_eq!(children(&tree, parent), vec![a, c, b]);
+        assert_eq!(tree.nodes[parent].last_child, Some(b));
+    }
+
+    // --- Remove with descendants ---
+
+    #[test]
+    fn remove_with_descendants_removes_whole_subtree() {
+        // root -> [a, b]; a -> [a1, a2]
+        let mut tree = new_tree();
+        let root = tree.alloc("root");
+        let a = tree.alloc("a");
+        let a1 = tree.alloc("a1");
+        let a2 = tree.alloc("a2");
+        let b = tree.alloc("b");
+        tree.append(root, a);
+        tree.append(a, a1);
+        tree.append(a, a2);
+        tree.append(root, b);
+
+        let result = tree.remove(a, true);
+
+        assert_eq!(result, None);
+        assert_eq!(children(&tree, root), vec![b]);
+        assert!(!tree.contains(a));
+        assert!(!tree.contains(a1));
+        assert!(!tree.contains(a2));
+        assert!(tree.contains(b));
+        assert_eq!(tree.len(), 2);
+    }
+
+    #[test]
+    fn remove_with_descendants_on_leaf_removes_only_leaf() {
+        let mut tree = new_tree();
+        let parent = tree.alloc("parent");
+        let child = tree.alloc("child");
+        tree.append(parent, child);
+
+        tree.remove(child, true);
+
+        assert!(!tree.contains(child));
+        assert!(tree.contains(parent));
+        assert_eq!(children(&tree, parent), Vec::<NodeId>::new());
+    }
+
+    #[test]
+    fn remove_with_descendants_deep_tree() {
+        // root -> a -> b -> c -> d
+        let mut tree = new_tree();
+        let root = tree.alloc("root");
+        let a = tree.alloc("a");
+        let b = tree.alloc("b");
+        let c = tree.alloc("c");
+        let d = tree.alloc("d");
+        tree.append(root, a);
+        tree.append(a, b);
+        tree.append(b, c);
+        tree.append(c, d);
+
+        tree.remove(a, true);
+
+        assert!(!tree.contains(a));
+        assert!(!tree.contains(b));
+        assert!(!tree.contains(c));
+        assert!(!tree.contains(d));
+        assert_eq!(tree.len(), 1);
+        assert_eq!(children(&tree, root), Vec::<NodeId>::new());
+    }
+
+    #[test]
+    fn remove_nonexistent_with_descendants_is_noop() {
+        let mut tree = new_tree();
+        let a = tree.alloc("a");
+        tree.remove(a, false);
+
+        assert_eq!(tree.remove(a, true), None);
+        assert!(tree.is_empty());
+    }
+
+    // --- Children edge cases ---
+
+    #[test]
+    fn children_of_leaf_is_empty() {
+        let mut tree = new_tree();
+        let a = tree.alloc("a");
+
+        let mut iter = tree.children(a);
+        assert!(iter.is_empty());
+        assert_eq!(iter.len(), 0);
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next_back(), None);
+    }
+
+    #[test]
+    fn children_len_matches_child_count() {
+        let mut tree = new_tree();
+        let parent = tree.alloc("parent");
+        let a = tree.alloc("a");
+        let b = tree.alloc("b");
+        tree.append(parent, a);
+        tree.append(parent, b);
+
+        let iter = tree.children(parent);
+        assert!(!iter.is_empty());
+        assert_eq!(iter.len(), 2);
+    }
+
+    // --- Ancestors edge cases ---
+
+    #[test]
+    fn ancestors_len_for_single_node() {
+        let mut tree = new_tree();
+        let a = tree.alloc("a");
+
+        let iter = tree.ancestors(a);
+        assert_eq!(iter.len(), 1);
+    }
+
+    // --- Iter / IterMut edge cases ---
+
+    #[test]
+    fn iter_over_empty_tree_yields_nothing() {
+        let tree: Tree<&str> = Tree::new();
+        let mut iter = tree.iter();
+        assert_eq!(iter.len(), 0);
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn iter_mut_over_empty_tree_yields_nothing() {
+        let mut tree: Tree<&str> = Tree::new();
+        let mut iter = tree.iter_mut();
+        assert_eq!(iter.len(), 0);
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn iter_visits_all_nodes_regardless_of_tree_shape() {
+        let mut tree = new_tree();
+        let root = tree.alloc("root");
+        let a = tree.alloc("a");
+        let b = tree.alloc("b");
+        tree.append(root, a);
+        tree.append(a, b);
+
+        let ids: Vec<_> = tree.iter().map(|(id, _)| id).collect();
+        assert_eq!(ids.len(), 3);
+        for expected in [root, a, b] {
+            assert!(ids.contains(&expected));
+        }
+    }
 }

@@ -5,3 +5,10 @@ edition = "2024"
 
 [dependencies]
 slotmap = { version = "1", default-features = false }
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "tree"
+harness = false
