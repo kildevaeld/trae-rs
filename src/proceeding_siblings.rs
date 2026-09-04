@@ -1,13 +1,13 @@
 use crate::tree::{NodeId, TreeEntry};
 
-/// An iterator over a node's preceding siblings, including the node itself,
+/// An iterator over a node's proceeding siblings, including the node itself,
 /// in reverse order (nearest sibling first).
-pub struct PreviousSiblings<'a, T> {
+pub struct ProceedingSiblings<'a, T> {
     nodes: &'a slotmap::SlotMap<NodeId, TreeEntry<T>>,
     current: Option<NodeId>,
 }
 
-impl<'a, T> PreviousSiblings<'a, T> {
+impl<'a, T> ProceedingSiblings<'a, T> {
     pub(crate) fn new(nodes: &'a slotmap::SlotMap<NodeId, TreeEntry<T>>, node: NodeId) -> Self {
         Self {
             nodes,
@@ -16,7 +16,7 @@ impl<'a, T> PreviousSiblings<'a, T> {
     }
 }
 
-impl<'a, T> Iterator for PreviousSiblings<'a, T> {
+impl<'a, T> Iterator for ProceedingSiblings<'a, T> {
     type Item = NodeId;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -26,7 +26,7 @@ impl<'a, T> Iterator for PreviousSiblings<'a, T> {
     }
 }
 
-impl<'a, T> ExactSizeIterator for PreviousSiblings<'a, T> {
+impl<'a, T> ExactSizeIterator for ProceedingSiblings<'a, T> {
     fn len(&self) -> usize {
         let mut count = 0;
         let mut current = self.current;

@@ -8,7 +8,7 @@ pub mod decendents;
 pub mod forward_siblings;
 pub mod iter;
 pub mod orphans;
-pub mod previous_siblings;
+pub mod proceeding_siblings;
 pub mod reverse_children;
 pub mod traverse;
 mod tree;
@@ -19,7 +19,7 @@ pub use self::{
     forward_siblings::ForwardSiblings,
     iter::{Iter, IterMut},
     orphans::Orphans,
-    previous_siblings::PreviousSiblings,
+    proceeding_siblings::ProceedingSiblings,
     reverse_children::ReverseChildren,
     traverse::{NodeEdge, Traverse},
     tree::{NodeId, Tree},
