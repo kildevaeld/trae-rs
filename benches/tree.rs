@@ -1,5 +1,5 @@
 use criterion::{BatchSize, BenchmarkId, Criterion, criterion_group, criterion_main};
-use trae_rs::{NodeId, Tree};
+use trae::{NodeId, Tree};
 
 const SIZES: [usize; 3] = [100, 1_000, 10_000];
 

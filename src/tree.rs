@@ -1,6 +1,6 @@
 use alloc::vec;
 
-use crate::ancestors::Ancestors;
+use crate::{ancestors::Ancestors, tree::ChildDetach::DetachChildren};
 
 use super::{
     children::Children,
@@ -182,28 +182,19 @@ impl<T> Tree<T> {
 
     pub fn remove(&mut self, node: NodeId, decendents: bool) -> Option<T> {
         if self.nodes.contains_key(node) {
-            self.detach(node, false);
-        }
-
-        if decendents {
-            let mut to_remove = vec![node];
-            while let Some(node) = to_remove.pop() {
-                if let Some(entry) = self.nodes.remove(node) {
-                    if let Some(first_child) = entry.first_child {
-                        to_remove.push(first_child);
-                    }
-                    if let Some(next_sibling) = entry.next_sibling {
-                        to_remove.push(next_sibling);
-                    }
-                }
-            }
-
-            return None;
+            self.detach(node, ChildDetach::DetachChildren);
         }
 
         let entry = self.nodes.remove(node)?;
 
         Some(entry.value)
+    }
+
+    pub fn orphans(&mut self) -> impl Iterator<Item = NodeId> {
+        self.nodes
+            .iter()
+            .filter(|m| m.1.parent.is_none())
+            .map(|(id, _)| id)
     }
 
     /// Detaches a node from its parent and siblings, but does not remove it from the tree.
