@@ -15,6 +15,6 @@ pub use self::{
     decendents::Descendants,
     iter::{Iter, IterMut},
     orphans::Orphans,
-    traverse::Traverse,
+    traverse::{NodeEdge, Traverse},
     tree::{NodeId, Tree},
 };
