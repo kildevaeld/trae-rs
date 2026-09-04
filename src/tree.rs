@@ -1,11 +1,12 @@
 use alloc::vec;
 
-use crate::{ancestors::Ancestors, tree::ChildDetach::DetachChildren};
+use crate::ancestors::Ancestors;
 
 use super::{
     children::Children,
     decendents::Descendants,
     iter::{Iter, IterMut},
+    orphans::Orphans,
     traverse::Traverse,
 };
 
@@ -181,20 +182,38 @@ impl<T> Tree<T> {
     }
 
     pub fn remove(&mut self, node: NodeId, decendents: bool) -> Option<T> {
-        if self.nodes.contains_key(node) {
-            self.detach(node, ChildDetach::DetachChildren);
+        if !self.nodes.contains_key(node) {
+            return None;
         }
 
-        let entry = self.nodes.remove(node)?;
+        if !decendents {
+            self.detach(node, ChildDetach::DetachChildren);
+            return self.nodes.remove(node).map(|entry| entry.value);
+        }
 
-        Some(entry.value)
+        self.detach(node, ChildDetach::KeepChildren);
+
+        let mut stack = vec![node];
+        let mut removed = None;
+        while let Some(current) = stack.pop() {
+            let entry = self.nodes.remove(current)?;
+
+            let mut child = entry.first_child;
+            while let Some(c) = child {
+                child = self.nodes[c].next_sibling;
+                stack.push(c);
+            }
+
+            if current == node {
+                removed = Some(entry.value);
+            }
+        }
+
+        removed
     }
 
-    pub fn orphans(&mut self) -> impl Iterator<Item = NodeId> {
-        self.nodes
-            .iter()
-            .filter(|m| m.1.parent.is_none())
-            .map(|(id, _)| id)
+    pub fn orphans(&self) -> Orphans<'_, T> {
+        Orphans::new(self.nodes.iter())
     }
 
     /// Detaches a node from its parent and siblings, but does not remove it from the tree.
@@ -1357,7 +1376,7 @@ mod tests {
 
         let result = tree.remove(a, true);
 
-        assert_eq!(result, None);
+        assert_eq!(result, Some("a"));
         assert_eq!(children(&tree, root), vec![b]);
         assert!(!tree.contains(a));
         assert!(!tree.contains(a1));
@@ -1485,5 +1504,43 @@ mod tests {
         for expected in [root, a, b] {
             assert!(ids.contains(&expected));
         }
+    }
+
+    // --- Orphans ---
+
+    #[test]
+    fn orphans_over_empty_tree_yields_nothing() {
+        let tree: Tree<&str> = Tree::new();
+        assert_eq!(tree.orphans().next(), None);
+    }
+
+    #[test]
+    fn orphans_yields_only_parentless_nodes() {
+        let mut tree = new_tree();
+        let root = tree.alloc("root");
+        let a = tree.alloc("a");
+        let b = tree.alloc("b");
+        let detached = tree.alloc("detached");
+        tree.append(root, a);
+        tree.append(root, b);
+
+        let ids: Vec<_> = tree.orphans().collect();
+        assert_eq!(ids.len(), 2);
+        assert!(ids.contains(&root));
+        assert!(ids.contains(&detached));
+        assert!(!ids.contains(&a));
+        assert!(!ids.contains(&b));
+    }
+
+    #[test]
+    fn orphans_reflects_detach() {
+        let mut tree = new_tree();
+        let parent = tree.alloc("parent");
+        let child = tree.alloc("child");
+        tree.append(parent, child);
+        assert_eq!(tree.orphans().count(), 1);
+
+        tree.detach(child, false);
+        assert_eq!(tree.orphans().count(), 2);
     }
 }
