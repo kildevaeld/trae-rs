@@ -10,6 +10,7 @@ pub mod iter;
 pub mod orphans;
 pub mod proceeding_siblings;
 pub mod reverse_children;
+pub mod secondary;
 pub mod traverse;
 mod tree;
 
@@ -21,6 +22,7 @@ pub use self::{
     orphans::Orphans,
     proceeding_siblings::ProceedingSiblings,
     reverse_children::ReverseChildren,
+    secondary::SecondaryMap,
     traverse::{NodeEdge, Traverse},
     tree::{NodeId, Tree},
 };
