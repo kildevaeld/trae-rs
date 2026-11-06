@@ -320,9 +320,23 @@ impl<R> core::ops::Index<NodeId> for Tree<R> {
     }
 }
 
+impl<R> core::ops::Index<&NodeId> for Tree<R> {
+    type Output = R;
+
+    fn index(&self, index: &NodeId) -> &Self::Output {
+        self.get(*index).unwrap()
+    }
+}
+
 impl<R> core::ops::IndexMut<NodeId> for Tree<R> {
     fn index_mut(&mut self, index: NodeId) -> &mut Self::Output {
         self.get_mut(index).unwrap()
+    }
+}
+
+impl<R> core::ops::IndexMut<&NodeId> for Tree<R> {
+    fn index_mut(&mut self, index: &NodeId) -> &mut Self::Output {
+        self.get_mut(*index).unwrap()
     }
 }
 
